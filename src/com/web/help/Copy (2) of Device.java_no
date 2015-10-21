@@ -1,0 +1,375 @@
+package com.web;
+
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import net.sf.json.JSONObject;
+
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+
+import com.ServiceInfo;
+import com.service.Preset;
+import com.util.CosJSONUtil;
+import com.util.DateUtils;
+import com.util.DeviceCache;
+
+@Controller
+public class Device {
+
+	@Resource
+	DeviceCache deviceCache;
+
+	/**
+	 * @author zfc
+	 * 
+	 *         得到所有服务
+	 * 
+	 * @param request
+	 * @param response
+	 */
+	@RequestMapping(value = "/listAll", method = RequestMethod.GET)
+	public void listAll(HttpServletRequest request, HttpServletResponse response) {
+		JSONObject json = CosJSONUtil.toJsonObjectFromMap(getAll());
+		response.setContentType("text/html;charset=UTF-8");
+		try {
+			PrintWriter pw = response.getWriter();
+			if (json != null && !json.isEmpty()) {
+				pw.print(json.toString());
+			}
+			pw.flush();
+			pw.close();
+		} catch (IOException e) {
+		}
+	}
+
+	/**
+	 * @author zfc
+	 * 
+	 *         得到mac的所有服务
+	 * 
+	 * @param request
+	 * @param response
+	 */
+	@SuppressWarnings("unchecked")
+	@RequestMapping(value = "/listByMac", method = RequestMethod.GET)
+	public void listByMac(HttpServletRequest request,
+			HttpServletResponse response) {
+		Map<String, Map<String, ServiceInfo>> map = null;
+		if (request.getParameter("mac") != null) {
+			map = (Map<String, Map<String, ServiceInfo>>) deviceCache
+					.verifyRead(request.getParameter("mac"));
+
+			JSONObject json = CosJSONUtil.toJsonObjectFromMap(map);
+			response.setContentType("text/html;charset=UTF-8");
+			try {
+				PrintWriter pw = response.getWriter();
+				if (json != null && !json.isEmpty()) {
+					pw.print(json.toString());
+				}
+				pw.flush();
+				pw.close();
+			} catch (IOException e) {
+			}
+		}
+	}
+
+	/**
+	 * @author zfc
+	 * 
+	 *         处理设备的服务注册
+	 * @param request
+	 * @param response
+	 */
+	@SuppressWarnings({ "unchecked", "null" })
+	@RequestMapping(value = "/registering", method = RequestMethod.GET)
+	public void registering(HttpServletRequest request,
+			HttpServletResponse response) {
+		ServiceInfo serviceInfo = formatUtil(request
+				.getParameter("serviceinfo"));
+		if (serviceInfo == null || "".equals(serviceInfo.getMac())
+				|| "".equals(serviceInfo.getId()))
+			return;
+		
+		Map<String,ServiceInfo> macs = (HashMap<String,ServiceInfo>) deviceCache
+				.verifyRead(serviceInfo.getMac());
+		if (macs != null) {
+			macs.put(serviceInfo.getId(), serviceInfo);
+		} else {
+			macs=new HashMap<String, ServiceInfo>();
+			macs.put(serviceInfo.getId(), serviceInfo);
+		}
+		deviceCache.verifyWrite(serviceInfo.getMac(), macs);
+//		Map<String, ServiceInfo> m=new HashMap<String, ServiceInfo>();
+//		Map<String, Map<String, ServiceInfo>> macs = (HashMap<String, Map<String, ServiceInfo>>) deviceCache
+//				.verifyRead(serviceInfo.getMac());
+//		if (macs != null) {
+//			macs.get(serviceInfo.getMac())
+//					.put(serviceInfo.getId(), serviceInfo);
+//		} else {
+//			macs = new HashMap<String, Map<String, ServiceInfo>>();
+//			m = new HashMap<String, ServiceInfo>();
+//			m.put(serviceInfo.getId(), serviceInfo);
+//			macs.put(serviceInfo.getMac(), m);
+//			m = null;
+//		}
+//		deviceCache.verifyWrite(serviceInfo.getMac(), macs);
+
+		Map<String, String> map = new HashMap<String, String>();
+		map.put("info", request.getParameter("serviceinfo") + " 该服务已经注册。。。");
+		JSONObject json = CosJSONUtil.toJsonObjectFromMap(map);
+		response.setContentType("text/html;charset=UTF-8");
+		try {
+			PrintWriter pw = response.getWriter();
+			if (json != null && !json.isEmpty()) {
+				pw.print(json.toString());
+			}
+			pw.flush();
+			pw.close();
+		} catch (IOException e) {
+		}
+	}
+
+	/**
+	 * @author zfc
+	 * 
+	 *         处理设备的服务注销
+	 * @param request
+	 * @param response
+	 */
+	@SuppressWarnings("unchecked")
+	@RequestMapping(value = "/unRegistering", method = RequestMethod.GET)
+	public void unRegistering(HttpServletRequest request,
+			HttpServletResponse response) {
+		// ServiceInfo serviceInfo = formatUtil(request
+		// .getParameter("serviceinfo"));
+		// Map<String, Map<String, ServiceInfo>> map2 = (Map<String, Map<String,
+		// ServiceInfo>>) deviceCache
+		// .verifyRead(serviceInfo.getMac());
+		// map2.get(serviceInfo.getMac()).remove(serviceInfo.getId());
+
+		String mac = request.getParameter("mac");
+		String id = request.getParameter("id");
+		Map<String, Map<String, ServiceInfo>> map22 = (Map<String, Map<String, ServiceInfo>>) deviceCache
+				.verifyRead(mac);
+		map22.get(mac).remove(id);
+
+		Map<String, String> map = new HashMap<String, String>();
+		map.put("info", request.getParameter("serviceinfo") + " ： 该服务已注销。。。");
+		JSONObject json = CosJSONUtil.toJsonObjectFromMap(map);
+		response.setContentType("text/html;charset=UTF-8");
+		try {
+			PrintWriter pw = response.getWriter();
+			if (json != null && !json.isEmpty()) {
+				pw.print(json.toString());
+			}
+			pw.flush();
+			pw.close();
+		} catch (IOException e) {
+		}
+	}
+
+	/**
+	 * @author zfc
+	 * 
+	 *         处理设备端发送的心跳数据
+	 * @param request
+	 * @param response
+	 */
+	@SuppressWarnings("unchecked")
+	@RequestMapping(value = "/heartbeat", method = RequestMethod.GET)
+	public void heartbeat(HttpServletRequest request,
+			HttpServletResponse response) {
+		try {
+			ServiceInfo serviceInfo = formatUtil(request
+					.getParameter("serviceinfo"));
+			Map<String, Map<String, ServiceInfo>> map = (Map<String, Map<String, ServiceInfo>>) deviceCache
+					.verifyRead(serviceInfo.getMac());
+//			map.get(serviceInfo.getMac()).get(serviceInfo.getId())
+//			.setDate(new Date());
+			map.get(serviceInfo.getId()).setDate(new Date());
+
+		} catch (Exception e) {
+			// 心跳失败
+		}
+	}
+
+	public ServiceInfo formatUtil(String name) {
+		String[] str = name.trim().split("_");
+		ServiceInfo serviceInfo = new ServiceInfo();
+		if ((str[1] == null || "".equals(str[1].trim()))
+				|| (str[2] == null || "".equals(str[2].trim()))
+				|| (str[3] == null || "".equals(str[3].trim())))
+			return null;
+		serviceInfo.setIp(str[0].trim());
+		serviceInfo.setMac(str[1].trim());
+		serviceInfo.setType(str[2].trim());
+		serviceInfo.setId(str[3].trim());
+		if(str.length==5)
+		serviceInfo.setUrl(str[4]);
+		serviceInfo.setDate(new Date());
+		return serviceInfo;
+	}
+
+	@SuppressWarnings("unchecked")
+	public Map<String, Map<String, Map<String, ServiceInfo>>> getAll() {
+		Map<String, Map<String, Map<String, ServiceInfo>>> all = new HashMap<String, Map<String, Map<String, ServiceInfo>>>();
+		List<String> list = (List<String>) deviceCache.verifyReadAllKeys();
+		Map<String, Map<String, ServiceInfo>> map = null;
+		for (String string : list) {
+			if (string != null && !"".equals(string)) {
+				map = (Map<String, Map<String, ServiceInfo>>) deviceCache
+						.verifyRead(string);
+				all.put(string, map);
+			}
+		}
+		return all;
+	}
+
+	/**
+	 * @author zfc
+	 * 
+	 *         处理设备的心跳数据 手动执行 检测没有心跳脉冲注销服务
+	 * @param request
+	 * @param response
+	 */
+	@RequestMapping(value = "/flushAll", method = RequestMethod.GET)
+	public void flushAll() {
+		execute();
+	}
+
+	@SuppressWarnings("unchecked")
+	public void execute() {
+		Iterator<String> idIterator;
+		Iterator<String> macIterator;
+		Map<String, ServiceInfo> idMap = null;
+		Map<String, Map<String, ServiceInfo>> macMap = null;
+		ServiceInfo serviceInfo;
+		List<String> macs = (List<String>) deviceCache.verifyReadAllKeys();
+
+		for (String string : macs) {
+			if (string != null && !"".equals(string)) {
+
+				macMap = (Map<String, Map<String, ServiceInfo>>) deviceCache
+						.verifyRead(string);
+				macIterator = macMap.keySet().iterator();
+				while (macIterator.hasNext()) {
+					idMap = macMap.get(macIterator.next());
+					if (idMap.keySet().isEmpty())
+						deviceCache.verifyDel(string);
+					else {
+						idIterator = idMap.keySet().iterator();
+						while (idIterator.hasNext()) {
+							String str = idIterator.next();
+							serviceInfo = (ServiceInfo) idMap.get(str);
+
+							// System.out.println(serviceInfo.getMac()
+							// + serviceInfo.getId());
+
+							try {
+								if (DateUtils.timeDifference(new Date(),
+										serviceInfo.getDate()) > 1000) {
+									idMap.remove(str);
+									if (idMap.keySet().isEmpty()) {
+										deviceCache.verifyDel(string);
+									} else {
+										deviceCache.verifyWrite(
+												serviceInfo.getMac(), macMap);
+									}
+								}
+
+								idIterator = idMap.keySet().iterator();
+
+							} catch (Exception e) {
+								continue;
+							}
+						}
+					}
+				}
+			}
+		}
+
+	}
+
+
+	/**
+	 * @author zfc
+	 * 
+	 * 
+	 * @param request
+	 * @param response
+	 */
+	@RequestMapping(value = "/presetSave", method = RequestMethod.GET)
+	public void presetSave(HttpServletRequest request,
+			HttpServletResponse response) {
+		String id = request.getParameter("id");
+		if (id != null && !"".equals(id)) {
+			Preset.save(id);
+		}
+//		 System.out.println(id);
+	}
+	
+	/**
+	 * @author zfc
+	 * 
+	 * 
+	 * @param request
+	 * @param response
+	 */
+	@RequestMapping(value = "/presetCall", method = RequestMethod.GET)
+	public void presetCall(HttpServletRequest request,
+			HttpServletResponse response) {
+		String id = request.getParameter("id");
+		if (id != null && !"".equals(id)) {
+			Preset.call(id);
+		}
+//		 System.out.println(id);
+	}
+
+	/**
+	 * @author zfc
+	 * 
+	 * 
+	 * @param request
+	 * @param response
+	 */
+	@RequestMapping(value = "/presetClear", method = RequestMethod.GET)
+	public void presetClear(HttpServletRequest request,
+			HttpServletResponse response) {
+		String id = request.getParameter("id");
+		if (id != null && !"".equals(id)) {
+			Preset.clear(id);
+		}
+//		 System.out.println(id);
+	}
+
+	/**
+	 * @author zfc
+	 * 
+	 * 
+	 * @param request
+	 * @param response
+	 */
+	@RequestMapping(value = "/mouseTrace", method = RequestMethod.GET)
+	public void MouseTrace(HttpServletRequest request,
+			HttpServletResponse response) {
+		String x = request.getParameter("x");
+		String y = request.getParameter("y");
+		if (x != null && !"".equals(x) && y != null && !"".equals(y)) {
+			com.daobotai.MouseTrace.mouse_trace(x, y);
+		}
+//		 System.out.println(x+y);
+	}
+	
+	
+}
